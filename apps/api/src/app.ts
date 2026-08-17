@@ -1,14 +1,27 @@
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import session from '@fastify/session';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import type { Environment } from './config/env.js';
+import { PrismaUserRepository, type UserRepository } from './modules/auth/auth.repository.js';
+import { authRoutes } from './modules/auth/auth.route.js';
+import { AuthService } from './modules/auth/auth.service.js';
 import { healthRoutes } from './modules/system/health.route.js';
+import { createPrismaClient, registerDatabaseShutdown } from './plugins/database.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerSwagger } from './plugins/swagger.js';
 
-export async function buildApp(environment: Environment): Promise<FastifyInstance> {
+interface BuildAppOptions {
+  userRepository?: UserRepository;
+}
+
+export async function buildApp(
+  environment: Environment,
+  options: BuildAppOptions = {},
+): Promise<FastifyInstance> {
   const app = Fastify({
     logger: environment.NODE_ENV !== 'test',
     requestTimeout: environment.REQUEST_TIMEOUT_MS,
@@ -17,14 +30,37 @@ export async function buildApp(environment: Environment): Promise<FastifyInstanc
 
   await registerSwagger(app);
   await app.register(helmet);
+  await app.register(cookie);
+  await app.register(session, {
+    secret: environment.SESSION_SECRET,
+    cookieName: 'daily_report_session',
+    cookie: {
+      httpOnly: true,
+      secure: environment.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+    },
+    saveUninitialized: false,
+  });
   await app.register(cors, {
     origin: environment.FRONTEND_URL,
     credentials: true,
   });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
+  let userRepository = options.userRepository;
+  if (!userRepository) {
+    const prisma = createPrismaClient(environment.DATABASE_URL);
+    registerDatabaseShutdown(app, prisma);
+    userRepository = new PrismaUserRepository(prisma);
+  }
+
   registerErrorHandler(app);
   await app.register(healthRoutes, { prefix: '/api/v1' });
+  await app.register(authRoutes, {
+    prefix: '/api/v1/auth',
+    authService: new AuthService(userRepository),
+  });
 
   return app;
 }

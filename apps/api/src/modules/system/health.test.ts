@@ -8,6 +8,7 @@ const testEnvironment: Environment = {
   PORT: 3000,
   HOST: '127.0.0.1',
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/api_daily_report_test',
+  SESSION_SECRET: 'test-session-secret-with-at-least-32-characters',
   FRONTEND_URL: 'http://localhost:5173',
   REQUEST_TIMEOUT_MS: 30_000,
   PROVIDER_REQUEST_TIMEOUT_MS: 15_000,

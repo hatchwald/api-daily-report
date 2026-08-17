@@ -10,7 +10,10 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
         description: 'Read-only Git activity reporting API.',
         version: '0.1.0',
       },
-      tags: [{ name: 'System', description: 'API status and diagnostics' }],
+      tags: [
+        { name: 'Auth', description: 'Registration and session authentication' },
+        { name: 'System', description: 'API status and diagnostics' },
+      ],
     },
   });
 
