@@ -15,6 +15,10 @@ class MemoryUserRepository implements UserRepository {
     return Promise.resolve(this.users.find((user) => user.email === email) ?? null);
   }
 
+  public findById(id: string): Promise<StoredUser | null> {
+    return Promise.resolve(this.users.find((user) => user.id === id) ?? null);
+  }
+
   public create(input: CreateUserInput): Promise<StoredUser> {
     const user = { id: crypto.randomUUID(), ...input };
     this.users.push(user);

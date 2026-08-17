@@ -50,6 +50,14 @@ export class AuthService {
     return this.toAuthUser(user);
   }
 
+  public async getCurrentUser(userId: string): Promise<AuthUser> {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new ApplicationError('UNAUTHORIZED', 'Authentication is required.', 401);
+    }
+    return this.toAuthUser(user);
+  }
+
   private toAuthUser(user: AuthUser): AuthUser {
     return { id: user.id, email: user.email, name: user.name, timezone: user.timezone };
   }

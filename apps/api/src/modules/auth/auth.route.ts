@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
+import { requireAuthenticatedUserId } from '../../plugins/auth.js';
+
 import {
   authBodyJsonSchema,
   authUserResponseSchema,
@@ -15,6 +17,26 @@ export interface AuthRoutesOptions {
 }
 
 export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): void {
+  app.get(
+    '/me',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Get the authenticated user',
+        description: 'Returns the user associated with the current valid session.',
+        response: {
+          200: authUserResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      const userId = requireAuthenticatedUserId(request);
+      const user = await options.authService.getCurrentUser(userId);
+      return { success: true, data: { user } };
+    },
+  );
+
   app.post(
     '/register',
     {

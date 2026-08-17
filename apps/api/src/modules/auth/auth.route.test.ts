@@ -13,6 +13,10 @@ class MemoryUserRepository implements UserRepository {
     return Promise.resolve(this.users.find((user) => user.email === email) ?? null);
   }
 
+  public findById(id: string): Promise<StoredUser | null> {
+    return Promise.resolve(this.users.find((user) => user.id === id) ?? null);
+  }
+
   public create(input: CreateUserInput): Promise<StoredUser> {
     const user = { id: crypto.randomUUID(), ...input };
     this.users.push(user);
@@ -53,6 +57,51 @@ async function createApp(): Promise<Awaited<ReturnType<typeof buildApp>>> {
 }
 
 describe('authentication routes', () => {
+  it('returns 401 when the current-user session is missing', async () => {
+    const app = await createApp();
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/auth/me' });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toMatchObject({ success: false, error: { code: 'UNAUTHORIZED' } });
+  });
+
+  it('returns the authenticated user without password data', async () => {
+    const app = await createApp();
+    const registration = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: {
+        email: 'developer@example.com',
+        password: 'a-secure-password',
+        name: 'Developer',
+        timezone: 'Asia/Jakarta',
+      },
+    });
+    const cookieHeader = registration.headers['set-cookie'];
+    const cookie = Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader;
+    if (!cookie) throw new Error('Registration did not create a session cookie.');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      success: true,
+      data: {
+        user: {
+          email: 'developer@example.com',
+          name: 'Developer',
+          timezone: 'Asia/Jakarta',
+        },
+      },
+    });
+    expect(response.body).not.toContain('password');
+  });
+
   it('registers a user and starts a session', async () => {
     const app = await createApp();
 
@@ -138,6 +187,28 @@ describe('authentication routes', () => {
     expect(response.statusCode).toBe(204);
   });
 
+  it('returns 401 after the session has been invalidated by logout', async () => {
+    const app = await createApp();
+    const registration = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: { email: 'developer@example.com', password: 'a-secure-password' },
+    });
+    const cookieHeader = registration.headers['set-cookie'];
+    const cookie = Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader;
+    if (!cookie) throw new Error('Registration did not create a session cookie.');
+    await app.inject({ method: 'POST', url: '/api/v1/auth/logout', headers: { cookie } });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toMatchObject({ success: false, error: { code: 'UNAUTHORIZED' } });
+  });
+
   it('documents all authentication endpoints in OpenAPI', async () => {
     const app = await createApp();
     await app.ready();
@@ -146,6 +217,7 @@ describe('authentication routes', () => {
       '/api/v1/auth/register': {},
       '/api/v1/auth/login': {},
       '/api/v1/auth/logout': {},
+      '/api/v1/auth/me': {},
     });
   });
 });
