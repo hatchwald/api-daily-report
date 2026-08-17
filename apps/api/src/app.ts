@@ -9,6 +9,7 @@ import type { Environment } from './config/env.js';
 import { PrismaUserRepository, type UserRepository } from './modules/auth/auth.repository.js';
 import { authRoutes } from './modules/auth/auth.route.js';
 import { AuthService } from './modules/auth/auth.service.js';
+import { ConnectionAuthorizationService } from './modules/connections/connection-auth.service.js';
 import {
   PrismaConnectionRepository,
   type ConnectionRepository,
@@ -19,10 +20,17 @@ import { healthRoutes } from './modules/system/health.route.js';
 import { createPrismaClient, registerDatabaseShutdown } from './plugins/database.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerSwagger } from './plugins/swagger.js';
+import {
+  DefaultProviderAuthorizationClient,
+  type ProviderAuthorizationClient,
+} from './providers/provider-authorization.client.js';
+import { ProviderHttpClient } from './providers/provider-http-client.js';
+import { CredentialEncryption } from './shared/security/credential-encryption.js';
 
 interface BuildAppOptions {
   userRepository?: UserRepository;
   connectionRepository?: ConnectionRepository;
+  providerAuthorizationClient?: ProviderAuthorizationClient;
 }
 
 export async function buildApp(
@@ -73,6 +81,27 @@ export async function buildApp(
   await app.register(connectionRoutes, {
     prefix: '/api/v1/connections',
     connectionService: new ConnectionService(connectionRepository),
+    authorizationService: new ConnectionAuthorizationService(
+      connectionRepository,
+      options.providerAuthorizationClient ??
+        new DefaultProviderAuthorizationClient(
+          new ProviderHttpClient(environment.PROVIDER_REQUEST_TIMEOUT_MS),
+          {
+            githubAppId: environment.GITHUB_APP_ID,
+            githubPrivateKey: environment.GITHUB_PRIVATE_KEY,
+            gitlabClientId: environment.GITLAB_CLIENT_ID,
+            gitlabClientSecret: environment.GITLAB_CLIENT_SECRET,
+            gitlabRedirectUri: environment.GITLAB_REDIRECT_URI,
+          },
+        ),
+      new CredentialEncryption(environment.CREDENTIAL_ENCRYPTION_KEY),
+      {
+        githubAppSlug: environment.GITHUB_APP_SLUG,
+        gitlabClientId: environment.GITLAB_CLIENT_ID,
+        gitlabRedirectUri: environment.GITLAB_REDIRECT_URI,
+        gitlabAllowedBaseUrls: environment.GITLAB_ALLOWED_BASE_URLS,
+      },
+    ),
   });
 
   return app;

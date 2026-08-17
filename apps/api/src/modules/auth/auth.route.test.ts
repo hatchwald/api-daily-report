@@ -30,6 +30,13 @@ const environment: Environment = {
   FRONTEND_URL: 'http://localhost:5173',
   REQUEST_TIMEOUT_MS: 30_000,
   PROVIDER_REQUEST_TIMEOUT_MS: 15_000,
+  GITHUB_APP_ID: '12345',
+  GITHUB_APP_SLUG: 'daily-report-test',
+  GITHUB_PRIVATE_KEY: 'test-private-key',
+  GITLAB_CLIENT_ID: 'gitlab-test-client',
+  GITLAB_CLIENT_SECRET: 'gitlab-test-secret',
+  GITLAB_REDIRECT_URI: 'http://localhost:3000/api/v1/connections/gitlab/callback',
+  GITLAB_ALLOWED_BASE_URLS: ['https://gitlab.com'],
 };
 
 const openApps = new Set<Awaited<ReturnType<typeof buildApp>>>();

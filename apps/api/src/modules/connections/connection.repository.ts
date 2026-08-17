@@ -22,6 +22,20 @@ function mapStatus(status: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'ERROR'): Connecti
 export interface ConnectionRepository {
   findAllOwnedByUser(userId: string): Promise<ConnectionSummary[]>;
   deleteOwnedByUser(connectionId: string, userId: string): Promise<boolean>;
+  upsertAuthorized(input: AuthorizedConnectionInput): Promise<ConnectionSummary>;
+}
+
+export interface AuthorizedConnectionInput {
+  userId: string;
+  provider: 'github' | 'gitlab';
+  baseUrl: string;
+  providerUserId: string;
+  providerUsername: string;
+  authType: 'github_app' | 'oauth2';
+  accessTokenEncrypted: string | null;
+  refreshTokenEncrypted: string | null;
+  tokenExpiresAt: Date | null;
+  installationId: string | null;
 }
 
 export class PrismaConnectionRepository implements ConnectionRepository {
@@ -54,5 +68,50 @@ export class PrismaConnectionRepository implements ConnectionRepository {
       where: { id: connectionId, userId },
     });
     return result.count === 1;
+  }
+
+  public async upsertAuthorized(input: AuthorizedConnectionInput): Promise<ConnectionSummary> {
+    const provider = input.provider === 'github' ? 'GITHUB' : 'GITLAB';
+    const authType = input.authType === 'github_app' ? 'GITHUB_APP' : 'OAUTH2';
+    const connection = await this.prisma.gitConnection.upsert({
+      where: {
+        userId_provider_baseUrl_providerUserId: {
+          userId: input.userId,
+          provider,
+          baseUrl: input.baseUrl,
+          providerUserId: input.providerUserId,
+        },
+      },
+      create: {
+        ...input,
+        provider,
+        authType,
+        status: 'ACTIVE',
+      },
+      update: {
+        providerUsername: input.providerUsername,
+        authType,
+        accessTokenEncrypted: input.accessTokenEncrypted,
+        refreshTokenEncrypted: input.refreshTokenEncrypted,
+        tokenExpiresAt: input.tokenExpiresAt,
+        installationId: input.installationId,
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        provider: true,
+        baseUrl: true,
+        providerUsername: true,
+        installationId: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      ...connection,
+      provider: mapProvider(connection.provider),
+      status: mapStatus(connection.status),
+    };
   }
 }

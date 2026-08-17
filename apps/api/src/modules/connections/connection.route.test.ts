@@ -27,6 +27,7 @@ class MemoryConnectionRepository implements ConnectionRepository {
   public lastDelete: { connectionId: string; userId: string } | null = null;
   public deleteResult = true;
   public connections: ConnectionSummary[] = [];
+  public authorizedConnection: ConnectionSummary | null = null;
 
   public findAllOwnedByUser(userId: string): Promise<ConnectionSummary[]> {
     this.lastListUserId = userId;
@@ -36,6 +37,11 @@ class MemoryConnectionRepository implements ConnectionRepository {
   public deleteOwnedByUser(connectionId: string, userId: string): Promise<boolean> {
     this.lastDelete = { connectionId, userId };
     return Promise.resolve(this.deleteResult);
+  }
+
+  public upsertAuthorized(): Promise<ConnectionSummary> {
+    if (!this.authorizedConnection) throw new Error('No authorized connection fixture configured.');
+    return Promise.resolve(this.authorizedConnection);
   }
 }
 
@@ -49,6 +55,13 @@ const environment: Environment = {
   FRONTEND_URL: 'http://localhost:5173',
   REQUEST_TIMEOUT_MS: 30_000,
   PROVIDER_REQUEST_TIMEOUT_MS: 15_000,
+  GITHUB_APP_ID: '12345',
+  GITHUB_APP_SLUG: 'daily-report-test',
+  GITHUB_PRIVATE_KEY: 'test-private-key',
+  GITLAB_CLIENT_ID: 'gitlab-test-client',
+  GITLAB_CLIENT_SECRET: 'gitlab-test-secret',
+  GITLAB_REDIRECT_URI: 'http://localhost:3000/api/v1/connections/gitlab/callback',
+  GITLAB_ALLOWED_BASE_URLS: ['https://gitlab.com', 'https://gitlab.example.com'],
 };
 
 const openApps = new Set<Awaited<ReturnType<typeof buildApp>>>();
