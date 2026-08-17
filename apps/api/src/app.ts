@@ -9,6 +9,12 @@ import type { Environment } from './config/env.js';
 import { PrismaUserRepository, type UserRepository } from './modules/auth/auth.repository.js';
 import { authRoutes } from './modules/auth/auth.route.js';
 import { AuthService } from './modules/auth/auth.service.js';
+import {
+  PrismaConnectionRepository,
+  type ConnectionRepository,
+} from './modules/connections/connection.repository.js';
+import { connectionRoutes } from './modules/connections/connection.route.js';
+import { ConnectionService } from './modules/connections/connection.service.js';
 import { healthRoutes } from './modules/system/health.route.js';
 import { createPrismaClient, registerDatabaseShutdown } from './plugins/database.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -16,6 +22,7 @@ import { registerSwagger } from './plugins/swagger.js';
 
 interface BuildAppOptions {
   userRepository?: UserRepository;
+  connectionRepository?: ConnectionRepository;
 }
 
 export async function buildApp(
@@ -49,10 +56,12 @@ export async function buildApp(
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
   let userRepository = options.userRepository;
-  if (!userRepository) {
+  let connectionRepository = options.connectionRepository;
+  if (!userRepository || !connectionRepository) {
     const prisma = createPrismaClient(environment.DATABASE_URL);
     registerDatabaseShutdown(app, prisma);
-    userRepository = new PrismaUserRepository(prisma);
+    userRepository ??= new PrismaUserRepository(prisma);
+    connectionRepository ??= new PrismaConnectionRepository(prisma);
   }
 
   registerErrorHandler(app);
@@ -60,6 +69,10 @@ export async function buildApp(
   await app.register(authRoutes, {
     prefix: '/api/v1/auth',
     authService: new AuthService(userRepository),
+  });
+  await app.register(connectionRoutes, {
+    prefix: '/api/v1/connections',
+    connectionService: new ConnectionService(connectionRepository),
   });
 
   return app;
