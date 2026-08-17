@@ -23,6 +23,15 @@ export interface ConnectionRepository {
   findAllOwnedByUser(userId: string): Promise<ConnectionSummary[]>;
   deleteOwnedByUser(connectionId: string, userId: string): Promise<boolean>;
   upsertAuthorized(input: AuthorizedConnectionInput): Promise<ConnectionSummary>;
+  findOwnedForRepositorySync(connectionIds: string[], userId: string): Promise<SyncConnection[]>;
+}
+
+export interface SyncConnection {
+  id: string;
+  provider: 'github' | 'gitlab';
+  baseUrl: string;
+  accessTokenEncrypted: string | null;
+  installationId: string | null;
 }
 
 export interface AuthorizedConnectionInput {
@@ -113,5 +122,25 @@ export class PrismaConnectionRepository implements ConnectionRepository {
       provider: mapProvider(connection.provider),
       status: mapStatus(connection.status),
     };
+  }
+
+  public async findOwnedForRepositorySync(
+    connectionIds: string[],
+    userId: string,
+  ): Promise<SyncConnection[]> {
+    const connections = await this.prisma.gitConnection.findMany({
+      where: { id: { in: connectionIds }, userId, status: 'ACTIVE' },
+      select: {
+        id: true,
+        provider: true,
+        baseUrl: true,
+        accessTokenEncrypted: true,
+        installationId: true,
+      },
+    });
+    return connections.map((connection) => ({
+      ...connection,
+      provider: mapProvider(connection.provider),
+    }));
   }
 }

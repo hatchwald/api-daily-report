@@ -13,6 +13,7 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
       tags: [
         { name: 'Auth', description: 'Registration and session authentication' },
         { name: 'Connections', description: 'Read-only Git provider connections' },
+        { name: 'Repositories', description: 'Repository synchronization and selection' },
         { name: 'System', description: 'API status and diagnostics' },
       ],
     },

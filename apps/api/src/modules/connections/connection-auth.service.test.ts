@@ -8,7 +8,11 @@ import type {
 import { CredentialEncryption } from '../../shared/security/credential-encryption.js';
 
 import { ConnectionAuthorizationService } from './connection-auth.service.js';
-import type { AuthorizedConnectionInput, ConnectionRepository } from './connection.repository.js';
+import type {
+  AuthorizedConnectionInput,
+  ConnectionRepository,
+  SyncConnection,
+} from './connection.repository.js';
 import type { ConnectionSummary } from './connection.types.js';
 
 class MemoryConnectionRepository implements ConnectionRepository {
@@ -33,6 +37,10 @@ class MemoryConnectionRepository implements ConnectionRepository {
       status: 'active',
       createdAt: new Date('2026-08-17T00:00:00.000Z'),
     });
+  }
+
+  public findOwnedForRepositorySync(): Promise<SyncConnection[]> {
+    return Promise.resolve([]);
   }
 }
 

@@ -16,21 +16,34 @@ import {
 } from './modules/connections/connection.repository.js';
 import { connectionRoutes } from './modules/connections/connection.route.js';
 import { ConnectionService } from './modules/connections/connection.service.js';
+import {
+  PrismaRepositoryRepository,
+  type RepositoryRepository,
+} from './modules/repositories/repository.repository.js';
+import { repositoryRoutes } from './modules/repositories/repository.route.js';
+import { RepositoryService } from './modules/repositories/repository.service.js';
 import { healthRoutes } from './modules/system/health.route.js';
 import { createPrismaClient, registerDatabaseShutdown } from './plugins/database.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerSwagger } from './plugins/swagger.js';
+import { GitHubAppJwtIssuer } from './providers/github/github-app-jwt.js';
 import {
   DefaultProviderAuthorizationClient,
   type ProviderAuthorizationClient,
 } from './providers/provider-authorization.client.js';
 import { ProviderHttpClient } from './providers/provider-http-client.js';
+import {
+  DefaultRepositoryProviderClient,
+  type RepositoryProviderClient,
+} from './providers/repository-provider.client.js';
 import { CredentialEncryption } from './shared/security/credential-encryption.js';
 
 interface BuildAppOptions {
   userRepository?: UserRepository;
   connectionRepository?: ConnectionRepository;
   providerAuthorizationClient?: ProviderAuthorizationClient;
+  repositoryRepository?: RepositoryRepository;
+  repositoryProviderClient?: RepositoryProviderClient;
 }
 
 export async function buildApp(
@@ -65,11 +78,13 @@ export async function buildApp(
 
   let userRepository = options.userRepository;
   let connectionRepository = options.connectionRepository;
-  if (!userRepository || !connectionRepository) {
+  let repositoryRepository = options.repositoryRepository;
+  if (!userRepository || !connectionRepository || !repositoryRepository) {
     const prisma = createPrismaClient(environment.DATABASE_URL);
     registerDatabaseShutdown(app, prisma);
     userRepository ??= new PrismaUserRepository(prisma);
     connectionRepository ??= new PrismaConnectionRepository(prisma);
+    repositoryRepository ??= new PrismaRepositoryRepository(prisma);
   }
 
   registerErrorHandler(app);
@@ -101,6 +116,20 @@ export async function buildApp(
         gitlabRedirectUri: environment.GITLAB_REDIRECT_URI,
         gitlabAllowedBaseUrls: environment.GITLAB_ALLOWED_BASE_URLS,
       },
+    ),
+  });
+  const providerHttpClient = new ProviderHttpClient(environment.PROVIDER_REQUEST_TIMEOUT_MS);
+  await app.register(repositoryRoutes, {
+    prefix: '/api/v1/repositories',
+    repositoryService: new RepositoryService(
+      connectionRepository,
+      repositoryRepository,
+      options.repositoryProviderClient ??
+        new DefaultRepositoryProviderClient(
+          providerHttpClient,
+          new GitHubAppJwtIssuer(environment.GITHUB_APP_ID, environment.GITHUB_PRIVATE_KEY),
+        ),
+      new CredentialEncryption(environment.CREDENTIAL_ENCRYPTION_KEY),
     ),
   });
 

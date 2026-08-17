@@ -1,9 +1,10 @@
-import { createHash, randomBytes, sign } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { z } from 'zod';
 
 import { ApplicationError } from '../shared/errors/application-error.js';
 
+import { GitHubAppJwtIssuer } from './github/github-app-jwt.js';
 import type { ProviderHttpClient } from './provider-http-client.js';
 
 const githubInstallationSchema = z.object({
@@ -68,7 +69,10 @@ export class DefaultProviderAuthorizationClient implements ProviderAuthorization
       {
         headers: {
           accept: 'application/vnd.github+json',
-          authorization: `Bearer ${this.createGitHubAppJwt()}`,
+          authorization: `Bearer ${new GitHubAppJwtIssuer(
+            this.config.githubAppId,
+            this.config.githubPrivateKey,
+          ).create()}`,
           'x-github-api-version': '2022-11-28',
         },
       },
@@ -109,22 +113,6 @@ export class DefaultProviderAuthorizationClient implements ProviderAuthorization
       refreshToken: token.refresh_token ?? null,
       expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1_000) : null,
     };
-  }
-
-  private createGitHubAppJwt(): string {
-    const now = Math.floor(Date.now() / 1_000);
-    const encode = (value: object): string =>
-      Buffer.from(JSON.stringify(value)).toString('base64url');
-    const unsignedToken = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({
-      iat: now - 60,
-      exp: now + 9 * 60,
-      iss: this.config.githubAppId,
-    })}`;
-    const privateKey = this.config.githubPrivateKey.replaceAll('\\n', '\n');
-    const signature = sign('RSA-SHA256', Buffer.from(unsignedToken), privateKey).toString(
-      'base64url',
-    );
-    return `${unsignedToken}.${signature}`;
   }
 }
 

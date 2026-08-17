@@ -5,7 +5,7 @@ import type { Environment } from '../../config/env.js';
 import type { UserRepository } from '../auth/auth.repository.js';
 import type { CreateUserInput, StoredUser } from '../auth/auth.types.js';
 
-import type { ConnectionRepository } from './connection.repository.js';
+import type { ConnectionRepository, SyncConnection } from './connection.repository.js';
 import type { ConnectionSummary } from './connection.types.js';
 
 class MemoryUserRepository implements UserRepository {
@@ -42,6 +42,10 @@ class MemoryConnectionRepository implements ConnectionRepository {
   public upsertAuthorized(): Promise<ConnectionSummary> {
     if (!this.authorizedConnection) throw new Error('No authorized connection fixture configured.');
     return Promise.resolve(this.authorizedConnection);
+  }
+
+  public findOwnedForRepositorySync(): Promise<SyncConnection[]> {
+    return Promise.resolve([]);
   }
 }
 

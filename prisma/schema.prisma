@@ -53,8 +53,26 @@ model GitConnection {
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
   user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositories           Repository[]
 
   @@index([userId])
   @@unique([userId, provider, baseUrl, providerUserId])
   @@map("git_connections")
+}
+
+model Repository {
+  id           String        @id @default(uuid()) @db.Uuid
+  connectionId String        @map("connection_id") @db.Uuid
+  externalId   String        @map("external_id")
+  name         String
+  fullName     String        @map("full_name")
+  url          String?
+  enabled      Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  connection   GitConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalId])
+  @@index([connectionId])
+  @@map("repositories")
 }
