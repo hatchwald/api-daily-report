@@ -29,7 +29,7 @@ afterEach(async () => {
   openApps.clear();
 });
 
-describe('POST /api/v1/reports/generate', () => {
+describe('report routes', () => {
   it('rejects an unauthenticated generation request before accessing user resources', async () => {
     const app = await buildApp(environment);
     openApps.add(app);
@@ -53,5 +53,7 @@ describe('POST /api/v1/reports/generate', () => {
     await app.ready();
 
     expect(app.swagger().paths).toHaveProperty('/api/v1/reports/generate');
+    expect(app.swagger().paths).toHaveProperty('/api/v1/reports');
+    expect(app.swagger().paths).toHaveProperty('/api/v1/reports/{date}');
   });
 });

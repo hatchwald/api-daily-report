@@ -19,7 +19,7 @@ import { InMemoryReportGenerationLock, type ReportGenerationLock } from './repor
 import { deduplicateActivities, groupActivities } from './report-mapper.js';
 import type { ReportRepository, SaveReportInput } from './report.repository.js';
 import { ReportService } from './report.service.js';
-import type { GeneratedReport, NormalizedActivity } from './report.types.js';
+import type { GeneratedReport, NormalizedActivity, ReportHistoryPage } from './report.types.js';
 
 const activity: NormalizedActivity = {
   provider: 'github',
@@ -74,6 +74,13 @@ class ActivityFixture implements ReportActivityClient {
 class ReportFixture implements ReportRepository {
   public timezone: string | null = 'Asia/Jakarta';
   public lastSave: SaveReportInput | null = null;
+  public storedReport: GeneratedReport | null = null;
+  public listOwned(_userId: string, page: number, limit: number): Promise<ReportHistoryPage> {
+    return Promise.resolve({ items: [], total: 0, page, limit });
+  }
+  public findOwnedByDate(): Promise<GeneratedReport | null> {
+    return Promise.resolve(this.storedReport);
+  }
   public getUserTimezone(): Promise<string | null> {
     return Promise.resolve(this.timezone);
   }
@@ -154,6 +161,23 @@ describe('report activity mapping', () => {
 });
 
 describe('ReportService', () => {
+  it('returns not found when the requested report date is not owned by the user', async () => {
+    const { service } = createService();
+
+    await expect(service.getByDate('user-1', '2026-08-17')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      statusCode: 404,
+    });
+  });
+
+  it('passes pagination through the ownership-scoped history repository', async () => {
+    const { service } = createService();
+
+    const history = await service.list('user-1', 2, 10);
+
+    expect(history).toMatchObject({ page: 2, limit: 10, total: 0 });
+  });
+
   it('blocks a second generation when the user lock is held', async () => {
     const lock: ReportGenerationLock = {
       acquire: () => Promise.resolve(false),

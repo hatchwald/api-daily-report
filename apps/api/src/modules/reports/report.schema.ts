@@ -4,6 +4,11 @@ export const generateReportBodySchema = z.object({
   date: z.iso.date(),
   connectionIds: z.array(z.uuid()).min(1).max(20),
 });
+export const reportHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export const reportDateParamsSchema = z.object({ date: z.iso.date() });
 
 export const reportErrorResponseSchema = {
   type: 'object',
@@ -79,6 +84,47 @@ export const generatedReportResponseSchema = {
             },
           },
         },
+      },
+    },
+  },
+} as const;
+
+export const reportHistoryResponseSchema = {
+  type: 'object',
+  required: ['success', 'data', 'meta'],
+  properties: {
+    success: { type: 'boolean' },
+    data: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: [
+          'id',
+          'reportDate',
+          'summary',
+          'totalCommits',
+          'totalMergeRequests',
+          'totalReviews',
+          'generatedAt',
+        ],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          reportDate: { type: 'string', format: 'date' },
+          summary: { type: 'string' },
+          totalCommits: { type: 'integer' },
+          totalMergeRequests: { type: 'integer' },
+          totalReviews: { type: 'integer' },
+          generatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+    meta: {
+      type: 'object',
+      required: ['page', 'limit', 'total'],
+      properties: {
+        page: { type: 'integer' },
+        limit: { type: 'integer' },
+        total: { type: 'integer' },
       },
     },
   },

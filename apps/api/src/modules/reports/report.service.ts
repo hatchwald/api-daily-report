@@ -8,7 +8,7 @@ import { calculateReportDateRange } from './report-date.js';
 import type { ReportGenerationLock } from './report-lock.js';
 import { deduplicateActivities, groupActivities } from './report-mapper.js';
 import type { ReportRepository } from './report.repository.js';
-import type { GeneratedReport } from './report.types.js';
+import type { GeneratedReport, ReportHistoryPage } from './report.types.js';
 
 export class ReportService {
   public constructor(
@@ -19,6 +19,16 @@ export class ReportService {
     private readonly encryption: CredentialEncryption,
     private readonly lock: ReportGenerationLock,
   ) {}
+
+  public list(userId: string, page: number, limit: number): Promise<ReportHistoryPage> {
+    return this.reports.listOwned(userId, page, limit);
+  }
+
+  public async getByDate(userId: string, reportDate: string): Promise<GeneratedReport> {
+    const report = await this.reports.findOwnedByDate(userId, reportDate);
+    if (!report) throw new ApplicationError('NOT_FOUND', 'Report was not found.', 404);
+    return report;
+  }
 
   public async generate(input: {
     userId: string;

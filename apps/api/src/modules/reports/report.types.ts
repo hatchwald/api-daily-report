@@ -40,3 +40,20 @@ export interface GeneratedReport {
   generatedAt: Date;
   items: GeneratedReportItem[];
 }
+
+export interface ReportHistoryEntry {
+  id: string;
+  reportDate: string;
+  summary: string;
+  totalCommits: number;
+  totalMergeRequests: number;
+  totalReviews: number;
+  generatedAt: Date;
+}
+
+export interface ReportHistoryPage {
+  items: ReportHistoryEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}

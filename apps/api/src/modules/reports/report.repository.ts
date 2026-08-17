@@ -1,6 +1,35 @@
-import type { PrismaClient } from '../../generated/prisma/client.js';
+import { z } from 'zod';
 
-import type { GeneratedReport, GeneratedReportItem } from './report.types.js';
+import type { PrismaClient } from '../../generated/prisma/client.js';
+import { ApplicationError } from '../../shared/errors/application-error.js';
+
+import type {
+  GeneratedReport,
+  GeneratedReportItem,
+  ReportHistoryPage,
+  ReportSourceReference,
+} from './report.types.js';
+
+const sourceDataSchema = z.array(
+  z.object({
+    category: z.enum(['commit', 'merge_request', 'review']),
+    externalId: z.string(),
+    title: z.string(),
+    url: z.url().nullable(),
+  }),
+);
+
+function formatReportDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseSourceData(input: unknown): ReportSourceReference[] {
+  const result = sourceDataSchema.safeParse(input);
+  if (!result.success) {
+    throw new ApplicationError('REPORT_DATA_INVALID', 'Stored report data is invalid.', 500);
+  }
+  return result.data;
+}
 
 export interface SaveReportInput {
   userId: string;
@@ -15,6 +44,8 @@ export interface SaveReportInput {
 export interface ReportRepository {
   getUserTimezone(userId: string): Promise<string | null>;
   replace(input: SaveReportInput): Promise<GeneratedReport>;
+  listOwned(userId: string, page: number, limit: number): Promise<ReportHistoryPage>;
+  findOwnedByDate(userId: string, reportDate: string): Promise<GeneratedReport | null>;
 }
 
 export class PrismaReportRepository implements ReportRepository {
@@ -83,6 +114,73 @@ export class PrismaReportRepository implements ReportRepository {
       totalReviews: input.totalReviews,
       generatedAt,
       items: input.items,
+    };
+  }
+
+  public async listOwned(userId: string, page: number, limit: number): Promise<ReportHistoryPage> {
+    const where = { userId };
+    const [reports, total] = await this.prisma.$transaction([
+      this.prisma.report.findMany({
+        where,
+        orderBy: { reportDate: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          reportDate: true,
+          summary: true,
+          totalCommits: true,
+          totalMergeRequests: true,
+          totalReviews: true,
+          generatedAt: true,
+        },
+      }),
+      this.prisma.report.count({ where }),
+    ]);
+    return {
+      items: reports.map((report) => ({
+        ...report,
+        reportDate: formatReportDate(report.reportDate),
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  public async findOwnedByDate(
+    userId: string,
+    reportDate: string,
+  ): Promise<GeneratedReport | null> {
+    const report = await this.prisma.report.findUnique({
+      where: {
+        userId_reportDate: { userId, reportDate: new Date(`${reportDate}T00:00:00.000Z`) },
+      },
+      include: { items: { orderBy: [{ repositoryName: 'asc' }, { title: 'asc' }] } },
+    });
+    if (!report) return null;
+    return {
+      id: report.id,
+      reportDate: formatReportDate(report.reportDate),
+      summary: report.summary,
+      totalCommits: report.totalCommits,
+      totalMergeRequests: report.totalMergeRequests,
+      totalReviews: report.totalReviews,
+      generatedAt: report.generatedAt,
+      items: report.items.map((item) => ({
+        provider: item.provider === 'github' ? 'github' : 'gitlab',
+        repositoryName: item.repositoryName,
+        category:
+          item.category === 'commit'
+            ? 'commit'
+            : item.category === 'merge_request'
+              ? 'merge_request'
+              : 'review',
+        title: item.title,
+        description: item.description,
+        activityCount: item.activityCount,
+        sourceData: parseSourceData(item.sourceData),
+      })),
     };
   }
 }
