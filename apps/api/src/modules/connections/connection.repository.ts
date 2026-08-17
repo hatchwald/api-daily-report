@@ -32,6 +32,8 @@ export interface SyncConnection {
   baseUrl: string;
   accessTokenEncrypted: string | null;
   installationId: string | null;
+  providerUserId: string;
+  providerUsername: string;
 }
 
 export interface AuthorizedConnectionInput {
@@ -136,6 +138,8 @@ export class PrismaConnectionRepository implements ConnectionRepository {
         baseUrl: true,
         accessTokenEncrypted: true,
         installationId: true,
+        providerUserId: true,
+        providerUsername: true,
       },
     });
     return connections.map((connection) => ({

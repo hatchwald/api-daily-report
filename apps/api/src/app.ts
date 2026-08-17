@@ -17,6 +17,16 @@ import {
 import { connectionRoutes } from './modules/connections/connection.route.js';
 import { ConnectionService } from './modules/connections/connection.service.js';
 import {
+  InMemoryReportGenerationLock,
+  type ReportGenerationLock,
+} from './modules/reports/report-lock.js';
+import {
+  PrismaReportRepository,
+  type ReportRepository,
+} from './modules/reports/report.repository.js';
+import { reportRoutes } from './modules/reports/report.route.js';
+import { ReportService } from './modules/reports/report.service.js';
+import {
   PrismaRepositoryRepository,
   type RepositoryRepository,
 } from './modules/repositories/repository.repository.js';
@@ -33,6 +43,10 @@ import {
 } from './providers/provider-authorization.client.js';
 import { ProviderHttpClient } from './providers/provider-http-client.js';
 import {
+  DefaultReportActivityClient,
+  type ReportActivityClient,
+} from './providers/report-activity.client.js';
+import {
   DefaultRepositoryProviderClient,
   type RepositoryProviderClient,
 } from './providers/repository-provider.client.js';
@@ -44,6 +58,9 @@ interface BuildAppOptions {
   providerAuthorizationClient?: ProviderAuthorizationClient;
   repositoryRepository?: RepositoryRepository;
   repositoryProviderClient?: RepositoryProviderClient;
+  reportRepository?: ReportRepository;
+  reportActivityClient?: ReportActivityClient;
+  reportGenerationLock?: ReportGenerationLock;
 }
 
 export async function buildApp(
@@ -79,12 +96,14 @@ export async function buildApp(
   let userRepository = options.userRepository;
   let connectionRepository = options.connectionRepository;
   let repositoryRepository = options.repositoryRepository;
-  if (!userRepository || !connectionRepository || !repositoryRepository) {
+  let reportRepository = options.reportRepository;
+  if (!userRepository || !connectionRepository || !repositoryRepository || !reportRepository) {
     const prisma = createPrismaClient(environment.DATABASE_URL);
     registerDatabaseShutdown(app, prisma);
     userRepository ??= new PrismaUserRepository(prisma);
     connectionRepository ??= new PrismaConnectionRepository(prisma);
     repositoryRepository ??= new PrismaRepositoryRepository(prisma);
+    reportRepository ??= new PrismaReportRepository(prisma);
   }
 
   registerErrorHandler(app);
@@ -130,6 +149,21 @@ export async function buildApp(
           new GitHubAppJwtIssuer(environment.GITHUB_APP_ID, environment.GITHUB_PRIVATE_KEY),
         ),
       new CredentialEncryption(environment.CREDENTIAL_ENCRYPTION_KEY),
+    ),
+  });
+  await app.register(reportRoutes, {
+    prefix: '/api/v1/reports',
+    reportService: new ReportService(
+      reportRepository,
+      connectionRepository,
+      repositoryRepository,
+      options.reportActivityClient ??
+        new DefaultReportActivityClient(
+          providerHttpClient,
+          new GitHubAppJwtIssuer(environment.GITHUB_APP_ID, environment.GITHUB_PRIVATE_KEY),
+        ),
+      new CredentialEncryption(environment.CREDENTIAL_ENCRYPTION_KEY),
+      options.reportGenerationLock ?? new InMemoryReportGenerationLock(),
     ),
   });
 

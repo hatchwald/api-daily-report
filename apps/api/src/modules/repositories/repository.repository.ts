@@ -7,6 +7,13 @@ export interface RepositoryRepository {
   replaceAuthorized(connectionId: string, repositories: GitRepository[]): Promise<void>;
   listOwned(userId: string, page: number, limit: number): Promise<RepositoryPage>;
   setEnabledOwned(repositoryId: string, userId: string, enabled: boolean): Promise<boolean>;
+  findEnabledOwned(connectionIds: string[], userId: string): Promise<EnabledRepository[]>;
+}
+
+export interface EnabledRepository {
+  connectionId: string;
+  externalId: string;
+  fullName: string;
 }
 
 export class PrismaRepositoryRepository implements RepositoryRepository {
@@ -86,5 +93,19 @@ export class PrismaRepositoryRepository implements RepositoryRepository {
       data: { enabled },
     });
     return result.count === 1;
+  }
+
+  public async findEnabledOwned(
+    connectionIds: string[],
+    userId: string,
+  ): Promise<EnabledRepository[]> {
+    return this.prisma.repository.findMany({
+      where: {
+        connectionId: { in: connectionIds },
+        enabled: true,
+        connection: { userId },
+      },
+      select: { connectionId: true, externalId: true, fullName: true },
+    });
   }
 }

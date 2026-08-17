@@ -16,6 +16,7 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   gitConnections GitConnection[]
+  reports        Report[]
 
   @@map("users")
 }
@@ -75,4 +76,41 @@ model Repository {
   @@unique([connectionId, externalId])
   @@index([connectionId])
   @@map("repositories")
+}
+
+model Report {
+  id                 String       @id @default(uuid()) @db.Uuid
+  userId             String       @map("user_id") @db.Uuid
+  reportDate         DateTime     @map("report_date") @db.Date
+  summary            String
+  totalCommits       Int          @default(0) @map("total_commits")
+  totalMergeRequests Int          @default(0) @map("total_merge_requests")
+  totalReviews       Int          @default(0) @map("total_reviews")
+  generatedAt        DateTime     @default(now()) @map("generated_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items              ReportItem[]
+
+  @@unique([userId, reportDate])
+  @@index([userId])
+  @@map("reports")
+}
+
+model ReportItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  reportId       String   @map("report_id") @db.Uuid
+  provider       String
+  repositoryName String   @map("repository_name")
+  category       String
+  title          String
+  description    String
+  activityCount  Int      @map("activity_count")
+  sourceData     Json     @map("source_data")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  report         Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_items")
 }

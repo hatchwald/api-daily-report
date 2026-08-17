@@ -10,7 +10,7 @@ import type {
 } from '../connections/connection.repository.js';
 import type { ConnectionSummary } from '../connections/connection.types.js';
 
-import type { RepositoryRepository } from './repository.repository.js';
+import type { EnabledRepository, RepositoryRepository } from './repository.repository.js';
 import { RepositoryService } from './repository.service.js';
 import type { RepositoryPage } from './repository.types.js';
 
@@ -42,6 +42,9 @@ class RepositoryFixture implements RepositoryRepository {
   }
   public setEnabledOwned(): Promise<boolean> {
     return Promise.resolve(this.updateResult);
+  }
+  public findEnabledOwned(): Promise<EnabledRepository[]> {
+    return Promise.resolve([]);
   }
 }
 
@@ -108,6 +111,8 @@ describe('RepositoryService', () => {
         baseUrl: 'https://api.github.com',
         accessTokenEncrypted: null,
         installationId: '123',
+        providerUserId: '42',
+        providerUsername: 'developer',
       },
     ];
 
@@ -126,6 +131,8 @@ describe('RepositoryService', () => {
         baseUrl: 'https://gitlab.com',
         accessTokenEncrypted: encryption.encrypt('provider-token'),
         installationId: null,
+        providerUserId: '84',
+        providerUsername: 'developer',
       },
     ];
 
