@@ -64,6 +64,14 @@ const gitlabEventsSchema = z.array(
     created_at: z.iso.datetime(),
   }),
 );
+const providerErrorDetailsSchema = z.object({ providerStatus: z.number() });
+
+function isProviderNotFound(error: unknown): boolean {
+  if (!(error instanceof ApplicationError)) return false;
+
+  const details = providerErrorDetailsSchema.safeParse(error.details);
+  return details.success && details.data.providerStatus === 404;
+}
 
 function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
@@ -112,9 +120,16 @@ export class DefaultReportActivityClient implements ReportActivityClient {
     if (!accessToken)
       throw new ApplicationError('GIT_AUTH_EXPIRED', 'GitLab authorization is unavailable.', 401);
     const batches = await Promise.all(
-      repositories.map(async (repository) =>
-        this.collectGitLabRepository(repository, connection, range, accessToken),
-      ),
+      repositories.map(async (repository) => {
+        try {
+          return await this.collectGitLabRepository(repository, connection, range, accessToken);
+        } catch (error) {
+          // GitLab uses 404 both for removed projects and repositories that have not
+          // been initialized. Neither should prevent reports for readable projects.
+          if (isProviderNotFound(error)) return [];
+          throw error;
+        }
+      }),
     );
     const reviews = await this.collectGitLabReviews(connection, repositories, range, accessToken);
     return [...batches.flat(), ...reviews];

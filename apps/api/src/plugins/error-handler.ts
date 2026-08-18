@@ -14,7 +14,7 @@ function getClientStatusCode(error: unknown): number | null {
     : null;
 }
 
-export function registerErrorHandler(app: FastifyInstance): void {
+export function registerErrorHandler(app: FastifyInstance, exposeDependencyDetails = false): void {
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ZodError) {
       return reply.status(400).send({
@@ -24,9 +24,19 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
 
     if (error instanceof ApplicationError) {
+      if (error.statusCode >= 500) {
+        request.log.error(
+          { code: error.code, details: error.details },
+          'Application dependency error',
+        );
+      }
       return reply.status(error.statusCode).send({
         success: false,
-        error: { code: error.code, message: error.message, details: error.details },
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.statusCode < 500 || exposeDependencyDetails ? error.details : undefined,
+        },
       });
     }
 

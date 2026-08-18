@@ -30,10 +30,21 @@ export class ProviderHttpClient {
       throw new ApplicationError('GIT_AUTH_EXPIRED', 'Git provider authorization failed.', 401);
     }
     if (!response.ok) {
+      const requestUrl = new URL(url);
       throw new ApplicationError(
         'GIT_PROVIDER_UNAVAILABLE',
         'The Git provider returned an unexpected response.',
         502,
+        {
+          providerStatus: response.status,
+          method: init.method ?? 'GET',
+          origin: requestUrl.origin,
+          pathname: requestUrl.pathname,
+          providerRequestId:
+            response.headers.get('x-github-request-id') ??
+            response.headers.get('x-request-id') ??
+            undefined,
+        },
       );
     }
 

@@ -109,7 +109,7 @@ export async function buildApp(
     reportRepository ??= new PrismaReportRepository(prisma);
   }
 
-  registerErrorHandler(app);
+  registerErrorHandler(app, environment.NODE_ENV === 'development');
   await app.register(healthRoutes, { prefix: '/api/v1' });
   await app.register(authRoutes, {
     prefix: '/api/v1/auth',
