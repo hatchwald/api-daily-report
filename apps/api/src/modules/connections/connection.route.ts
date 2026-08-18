@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { requireAuthenticatedUserId } from '../../plugins/auth.js';
 
 import type { ConnectionAuthorizationService } from './connection-auth.service.js';
+import { sendConnectionPopupResult } from './connection-popup.js';
 import {
   authorizationResponseSchema,
   connectionErrorResponseSchema,
@@ -12,13 +13,13 @@ import {
   gitHubCallbackQuerySchema,
   gitLabCallbackQuerySchema,
   gitLabConnectBodySchema,
-  oauthCallbackResponseSchema,
 } from './connection.schema.js';
 import type { ConnectionService } from './connection.service.js';
 
 export interface ConnectionRoutesOptions {
   connectionService: ConnectionService;
   authorizationService: ConnectionAuthorizationService;
+  frontendOrigin: string;
 }
 
 export function connectionRoutes(app: FastifyInstance, options: ConnectionRoutesOptions): void {
@@ -56,24 +57,31 @@ export function connectionRoutes(app: FastifyInstance, options: ConnectionRoutes
           },
         },
         response: {
-          201: oauthCallbackResponseSchema,
-          400: connectionErrorResponseSchema,
-          401: connectionErrorResponseSchema,
+          200: { type: 'string', description: 'Popup completion page' },
+          400: { type: 'string', description: 'Popup error page' },
+          401: { type: 'string', description: 'Popup error page' },
+          500: { type: 'string', description: 'Popup error page' },
         },
       },
     },
     async (request, reply) => {
-      const userId = requireAuthenticatedUserId(request);
       const query = gitHubCallbackQuerySchema.parse(request.query);
       const expectedState = request.session.githubInstallationState;
       delete request.session.githubInstallationState;
-      const connection = await options.authorizationService.completeGitHubInstallation({
-        userId,
-        installationId: query.installation_id,
-        state: query.state,
-        expectedState,
+      return sendConnectionPopupResult(request, reply, {
+        provider: 'github',
+        frontendOrigin: options.frontendOrigin,
+        complete: async () => {
+          const userId = requireAuthenticatedUserId(request);
+          const connection = await options.authorizationService.completeGitHubInstallation({
+            userId,
+            installationId: query.installation_id,
+            state: query.state,
+            expectedState,
+          });
+          return connection.id;
+        },
       });
-      return reply.status(201).send({ success: true, data: { connectionId: connection.id } });
     },
   );
 
@@ -125,24 +133,31 @@ export function connectionRoutes(app: FastifyInstance, options: ConnectionRoutes
           },
         },
         response: {
-          201: oauthCallbackResponseSchema,
-          400: connectionErrorResponseSchema,
-          401: connectionErrorResponseSchema,
+          200: { type: 'string', description: 'Popup completion page' },
+          400: { type: 'string', description: 'Popup error page' },
+          401: { type: 'string', description: 'Popup error page' },
+          500: { type: 'string', description: 'Popup error page' },
         },
       },
     },
     async (request, reply) => {
-      const userId = requireAuthenticatedUserId(request);
       const query = gitLabCallbackQuerySchema.parse(request.query);
       const pending = request.session.gitlabOAuth;
       delete request.session.gitlabOAuth;
-      const connection = await options.authorizationService.completeGitLabAuthorization({
-        userId,
-        code: query.code,
-        state: query.state,
-        pending,
+      return sendConnectionPopupResult(request, reply, {
+        provider: 'gitlab',
+        frontendOrigin: options.frontendOrigin,
+        complete: async () => {
+          const userId = requireAuthenticatedUserId(request);
+          const connection = await options.authorizationService.completeGitLabAuthorization({
+            userId,
+            code: query.code,
+            state: query.state,
+            pending,
+          });
+          return connection.id;
+        },
       });
-      return reply.status(201).send({ success: true, data: { connectionId: connection.id } });
     },
   );
 

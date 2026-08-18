@@ -83,19 +83,4 @@ export const authorizationResponseSchema = {
   },
 } as const;
 
-export const oauthCallbackResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['success', 'data'],
-  properties: {
-    success: { type: 'boolean' },
-    data: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['connectionId'],
-      properties: { connectionId: { type: 'string', format: 'uuid' } },
-    },
-  },
-} as const;
-
 export { errorResponseSchema as connectionErrorResponseSchema };

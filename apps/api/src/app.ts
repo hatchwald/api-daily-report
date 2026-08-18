@@ -115,6 +115,7 @@ export async function buildApp(
   await app.register(connectionRoutes, {
     prefix: '/api/v1/connections',
     connectionService: new ConnectionService(connectionRepository),
+    frontendOrigin: new URL(environment.FRONTEND_URL).origin,
     authorizationService: new ConnectionAuthorizationService(
       connectionRepository,
       options.providerAuthorizationClient ??
