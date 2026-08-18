@@ -47,4 +47,24 @@ describe('GET /api/v1/health', () => {
 
     expect(app.swagger().paths).toHaveProperty('/api/v1/health');
   });
+
+  it('allows credentialed DELETE requests from the configured frontend origin', async () => {
+    const app = await buildApp(testEnvironment);
+    openApps.add(app);
+
+    const response = await app.inject({
+      method: 'OPTIONS',
+      url: '/api/v1/connections/c6c4c99e-02ec-4719-a979-2d89440011ab',
+      headers: {
+        origin: testEnvironment.FRONTEND_URL,
+        'access-control-request-method': 'DELETE',
+        'access-control-request-headers': 'content-type',
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe(testEnvironment.FRONTEND_URL);
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+    expect(response.headers['access-control-allow-methods']).toContain('DELETE');
+  });
 });

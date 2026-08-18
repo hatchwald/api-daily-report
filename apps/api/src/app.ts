@@ -90,6 +90,9 @@ export async function buildApp(
   await app.register(cors, {
     origin: environment.FRONTEND_URL,
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    maxAge: 600,
   });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
